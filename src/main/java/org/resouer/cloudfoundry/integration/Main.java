@@ -19,90 +19,15 @@ import java.lang.reflect.Method;
  */
 public class Main {
 
-//    nats.publish("foo", "Hello world!");
 
-
-    //    Nats nats = new NatsConnector().addHost("nats://localhost:4222").connect();
-//
-//// Simple subscriber
-//    nats.subscribe("foo").addMessageHandler(new MessageHandler() {
-//        @Override
-//        public void onMessage(Message message) {
-//            System.out.println("Received: " + message);
-//        }
-//    });
-//
-//// Simple publisher
-    private static ThreadLocal<ChannelFuture> currentWriteOperationReturnValue =
-            new ThreadLocal<ChannelFuture>();
 
     static Nats nats() {
         return new NatsConnector().addHost("nats://localhost:4222").connect();
     }
 
-    static Nats provideSmartChannel(Nats nats, final ThreadLocal<ChannelFuture> futureForInvocationOfWriteMethod) throws Throwable {
-
-
-        String fieldName = "channel";
-
-
-        Class<?> classOfImpl = nats.getClass() ;
-        Field fieldForChannel =classOfImpl.getDeclaredField( fieldName);
-
-        boolean isPrivate = fieldForChannel.isAccessible() ;
-        fieldForChannel.setAccessible( true );
-
-        Object obj = fieldForChannel.get(nats);
-        assert obj instanceof Channel : "the channel field in the class should be an instance of a Netty channel";
-        Channel channel = (Channel) obj;
-
-
-        ProxyFactory proxyFactory = new ProxyFactory();
-        proxyFactory.setTarget(channel);
-        proxyFactory.addAdvice(new MethodInterceptor() {
-            @Override
-            public Object invoke(MethodInvocation invocation) throws Throwable {
-                Method m = invocation.getMethod();
-                boolean isOurWriteMethod = m.getName().equals("write") && m.getParameterTypes().length == 1;
-
-                if (isOurWriteMethod) {
-                    Object returnValue = invocation.proceed();
-                    assert returnValue instanceof ChannelFuture : "the returned value should be an instance of ChannelFuture";
-                    ChannelFuture channelFuture = (ChannelFuture) returnValue;
-                    futureForInvocationOfWriteMethod.set(channelFuture);
-                    return returnValue;
-                } else {
-                    // invoke the methods on the channel normally
-                    return invocation.proceed();
-                }
-            }
-        });
-
-        for(  Class<?> interfaceForChannel:  channel  .getClass().getInterfaces())
-        proxyFactory.addInterface(interfaceForChannel);
-
-        Channel improvedChannel = (Channel) proxyFactory.getProxy();
-
-        fieldForChannel.set(nats, improvedChannel);
-
-//        FieldUtils.writeDeclaredField(nats, fieldName, improvedChannel);
-
-
-        // remember to restore permissions
-        fieldForChannel.setAccessible( isPrivate);
-
-        return nats;
-    }
-
     static private void receiveAMessage(String topic) throws Throwable {
         Nats n = nats();
-
-        provideSmartChannel(n, currentWriteOperationReturnValue);
-
-
         Subscription subscription = n.subscribe(topic);
-
-        ChannelFuture channelFuture = currentWriteOperationReturnValue.get();
 
         HandlerRegistration handlerRegistration = subscription.addMessageHandler(
                 new MessageHandler() {
