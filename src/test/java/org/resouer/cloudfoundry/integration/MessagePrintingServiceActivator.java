@@ -9,7 +9,9 @@ import org.springframework.integration.annotation.ServiceActivator;
  */
 public class MessagePrintingServiceActivator {
     @ServiceActivator
-    public void printOutNewMessagesArriving(Message<?> msg) throws Throwable {
+    public String printOutNewMessagesArriving(Message<?> msg) throws Throwable {
         System.out.println(ToStringBuilder.reflectionToString(msg));
+        
+        return "";
     }
 }
