@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-ip="http://www.springframework.org/schema/integration/ip"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/ip http://www.springframework.org/schema/integration/ip/spring-integration-ip.xsd">
+
+
+
+	<!-- error handling -->
+	<bean id="errorHandler" class="org.resouer.cloudfoundry.integration.ErrorHandler" />
+	<int:service-activator input-channel="errorChannel"
+		ref="errorHandler" />
+
+
+
+	<context:property-placeholder />
+
+	<int:channel id="incomingNatsMessages" />
+ 
+	<int-ip:tcp-connection-factory id="natsServer"  type="server" port="10000" /> 
+
+
+
+	<int-ip:tcp-inbound-gateway id="nats" 
+		connection-factory="natsServer" request-channel="incomingNatsMessages"
+		error-channel="errorChannel" />
+
+
+	<bean id="natsProxyService"
+		class="org.resouer.cloudfoundry.integration.NatsProxyService" />
+
+	<int:service-activator input-channel="incomingNatsMessages"
+		ref="natsProxyService" />
+
+
+
+</beans>
